@@ -1,0 +1,42 @@
+# --- Unity core ---
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+UserSettings/
+ProjectSettings/EditorUserSettings.asset
+
+# --- IDE / tooling ---
+.vscode/
+.vs/
+.idea/
+*.sln*
+*.csproj
+*.user
+*.userprefs
+
+# --- Crash/Reports ---
+*.stacktrace
+
+# --- Build Artifacts ---
+*.apk
+*.aab
+*.ipa
+*.exe
+*.app
+*.x86*
+*.x64
+*.zip
+*.7z
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+
+# Keep these tracked:
+!Assets/
+!ProjectSettings/
+!Packages/
