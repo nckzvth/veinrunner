@@ -9,12 +9,14 @@
 UserSettings/
 ProjectSettings/EditorUserSettings.asset
 
-# --- IDE / tooling ---
+# --- Visual Studio/JetBrains ---
 .vscode/
 .vs/
 .idea/
 *.sln*
 *.csproj
+*.unityproj
+*.pidb
 *.user
 *.userprefs
 
@@ -36,7 +38,19 @@ ProjectSettings/EditorUserSettings.asset
 .DS_Store
 Thumbs.db
 
-# Keep these tracked:
+# --- Unity Asset Store cache ---
+AssetStoreTools*
+
+# --- Addressables & Generated (keep if you actually need them tracked) ---
+/ServerData/
+*.addressables
+*.hash
+
+# --- Keep these tracked: ---
 !Assets/
 !ProjectSettings/
 !Packages/
+
+# Optional: if you generate docs
+/Docs/_site/
+/Docs/dist/
