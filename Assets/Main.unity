@@ -196,8 +196,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.World.TerrainWorld
   seed: 12345
-  noiseScale: 0.0125
-  threshold: 0.55
+  noiseScale: 0.0105
+  threshold: 0.45
+  octaves: 2
+  lacunarity: 2
+  gain: 0.5
+  warpStrength: 0.12
+  smoothIterations: 2
+  birthLimit: 7
+  surviveMin: 4
   chunkPixels: 64
   pixelsPerUnit: 32
   spriteMat: {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
@@ -278,6 +285,7 @@ GameObject:
   - component: {fileID: 1987017481}
   - component: {fileID: 1987017480}
   - component: {fileID: 1987017483}
+  - component: {fileID: 1987017484}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -403,6 +411,23 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &1987017484
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1987017479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aef966f0529ef4c5db336ee0c7653d2d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.World.DevCameraMover
+  speed: 8
+  fastSpeed: 16
+  zoomSpeed: 6
+  minOrthoSize: 0.5
+  maxOrthoSize: 50
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
