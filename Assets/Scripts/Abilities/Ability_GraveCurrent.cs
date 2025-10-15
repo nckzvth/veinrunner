@@ -1,4 +1,4 @@
-// File: Assets/Scripts/Abilities/Ability_AuraArcWreath.cs
+// File: Assets/Scripts/Abilities/Ability_GraveCurrent.cs
 using UnityEngine;
 
 namespace Game.Abilities
