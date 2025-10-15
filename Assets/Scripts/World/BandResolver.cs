@@ -1,22 +1,21 @@
-// File: Assets/Scripts/World/BandResolver.cs
+// Namespace: Game.World
 namespace Game.World
 {
-    /// <summary>Resolves band by tile Y and effective tier by band + classifier tier.</summary>
     public static class BandResolver
     {
-        public enum Band { Yard, Galleries, Ancient }
-
-        public static Band BandFromY(int tileY)
+        // Depth bands: Yard (>= -128), Galleries (>= -384), Ancient (< -384)
+        public static int BandFromY(int tileY)
         {
-            if (tileY <= -384) return Band.Ancient;
-            if (tileY <= -128) return Band.Galleries;
-            return Band.Yard;
+            if (tileY >= -128) return 0;
+            if (tileY >= -384) return 1;
+            return 2;
         }
 
-        public static int EffectiveTier(Band band, int classifierTier)
+        public static int EffectiveTier(int band, int classifierTier)
         {
-            // TODO: tune if band modifies classifier tier.
-            return classifierTier;
+            // Placeholder; refine when Classifier goes in
+            return band < classifierTier ? band : classifierTier;
         }
     }
 }
+
