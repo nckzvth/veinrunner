@@ -17,6 +17,9 @@ namespace Game.World
         bool[,] _solid;
         byte[,] _material;
 
+        // Snapshot of generated base solidity for delta saves
+        bool[,] _baseSolid;
+
         Texture2D _tex;
         Color32[] _pixels;
         SpriteRenderer _sr;
@@ -50,17 +53,103 @@ namespace Game.World
             if (!rb) rb = gameObject.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Static;
 
-            // Keep whatever layer the parent (World) uses; expected "Ground"
+            // Preserve parent layer (expected "Ground")
             gameObject.layer = gameObject.layer;
         }
 
+        /// <summary>
+        /// Sets current maps; on first call also snapshots base map for delta saves.
+        /// </summary>
         public void SetMaps(bool[,] solid, byte[,] material)
         {
             _solid = solid;
             _material = material;
+            if (_baseSolid == null)
+                _baseSolid = CloneBoolGrid(_solid);
+
             UploadTexture();
             RebuildCollidersGreedy();
         }
+
+        // === Delta Save/Load API ===
+
+        /// <summary>Build deltas vs base map: mined (base=solid, now air), filled (base=air, now solid).</summary>
+        public ChunkSaveData BuildSaveData(Vector2Int coord)
+        {
+            var mined = new byte[BitBytesCount(_px)];
+            var filled = new byte[BitBytesCount(_px)];
+
+            int bitIndex = 0;
+            for (int y = 0; y < _px; y++)
+            for (int x = 0; x < _px; x++, bitIndex++)
+            {
+                bool wasSolid = _baseSolid[x, y];
+                bool nowSolid = _solid[x, y];
+
+                if (wasSolid && !nowSolid) SetBit(mined, bitIndex, true);
+                else if (!wasSolid && nowSolid) SetBit(filled, bitIndex, true);
+            }
+
+            return new ChunkSaveData(
+                v: 1,
+                x: coord.x,
+                y: coord.y,
+                s: _px,
+                mined: mined,
+                filled: filled
+            );
+        }
+
+        /// <summary>Apply deltas onto current maps, then refresh texture & colliders.</summary>
+        public void ApplySaveData(in ChunkSaveData data)
+        {
+            if (!data.IsValid(_px) || _baseSolid == null) return;
+
+            int bitIndex = 0;
+            for (int y = 0; y < _px; y++)
+            for (int x = 0; x < _px; x++, bitIndex++)
+            {
+                bool wasSolid = _baseSolid[x, y];
+                bool nowSolid = wasSolid;
+
+                if (GetBit(data.minedBits, bitIndex)) nowSolid = false;
+                if (GetBit(data.filledBits, bitIndex)) nowSolid = true;
+
+                _solid[x, y] = nowSolid;
+            }
+
+            UploadTexture();
+            RebuildCollidersGreedy();
+        }
+
+        static bool[,] CloneBoolGrid(bool[,] src)
+        {
+            int w = src.GetLength(0), h = src.GetLength(1);
+            var dst = new bool[w, h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    dst[x, y] = src[x, y];
+            return dst;
+        }
+
+        static int BitBytesCount(int size) => ((size * size) + 7) >> 3;
+
+        static void SetBit(byte[] arr, int idx, bool v)
+        {
+            int b = idx >> 3;
+            int m = 1 << (idx & 7);
+            if (v) arr[b] = (byte)(arr[b] | m);
+            else   arr[b] = (byte)(arr[b] & ~m);
+        }
+
+        static bool GetBit(byte[] arr, int idx)
+        {
+            int b = idx >> 3;
+            int m = 1 << (idx & 7);
+            return (arr[b] & m) != 0;
+        }
+
+        // === Mining & rendering (unchanged) ===
 
         public struct RimSample
         {
@@ -115,7 +204,7 @@ namespace Game.World
                     if (_solid[x, y] == after) continue;
 
                     _solid[x, y] = after;
-                    if (after && _material[x, y] == 0) _material[x, y] = 0; // default mat
+                    if (after && _material[x, y] == 0) _material[x, y] = 0;
 
                     changed = true;
 
@@ -249,3 +338,4 @@ namespace Game.World
         public float PPU => _ppu;
     }
 }
+
