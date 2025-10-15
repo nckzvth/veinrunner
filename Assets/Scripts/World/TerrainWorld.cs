@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Game.Data;
 
 namespace Game.World
 {
@@ -50,6 +51,9 @@ namespace Game.World
         public float digRateHz = 8f;
         public float fillRateHz = 6f;
 
+        [Header("Bands")]
+        public BandConfigSO bandConfig;
+
         float _chunkWorldSize;
         Camera _cam;
         float _digAcc, _fillAcc;
@@ -64,6 +68,7 @@ namespace Game.World
         {
             _cam = Camera.main;
             _chunkWorldSize = chunkPixels / pixelsPerUnit;
+            BandResolver.SetConfig(bandConfig);
 
             // Deterministic offsets from seed (stable across all chunks)
             var rng = new System.Random(seed);

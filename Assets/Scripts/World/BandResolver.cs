@@ -1,21 +1,45 @@
 // Namespace: Game.World
+using UnityEngine;
+using Game.Data; // <-- so BandResolver sees BandConfigSO in Game.Data
+
 namespace Game.World
 {
     public static class BandResolver
     {
-        // Depth bands: Yard (>= -128), Galleries (>= -384), Ancient (< -384)
-        public static int BandFromY(int tileY)
+        public enum Band : int { Yard = 0, Galleries = 1, Ancient = 2 }
+
+        static BandConfigSO _cfg;
+
+        public static void SetConfig(BandConfigSO cfg)
         {
-            if (tileY >= -128) return 0;
-            if (tileY >= -384) return 1;
-            return 2;
+            _cfg = cfg;
+            if (_cfg == null) Debug.LogWarning("[BandResolver] BandConfigSO not set; defaults will be used.");
         }
 
-        public static int EffectiveTier(int band, int classifierTier)
+        // ---- PUBLIC threshold accessors (tile Y). Defaults keep you unblocked if config missing.
+        public static int YardTopTileY      => _cfg ? _cfg.YardTopTileY      : 0;
+        public static int GalleriesTopTileY => _cfg ? _cfg.GalleriesTopTileY : -128;
+        public static int AncientTopTileY   => _cfg ? _cfg.AncientTopTileY   : -384;
+
+        public static Band BandFromY(int tileY)
         {
-            // Placeholder; refine when Classifier goes in
-            return band < classifierTier ? band : classifierTier;
+            if (tileY >= GalleriesTopTileY) return Band.Yard;
+            if (tileY >= AncientTopTileY)   return Band.Galleries;
+            return Band.Ancient;
         }
+
+        public static int EffectiveTier(Band band, int classifierTier)
+            => Mathf.Min((int)band, classifierTier);
+
+        public static int GetBandArmor(Band band) => (int)band;
+
+        public static int WorldYToTileY(float worldY, float pixelsPerUnit, int pixelsPerTile = 1)
+        {
+            float tilesPerUnit = pixelsPerUnit / pixelsPerTile;
+            return Mathf.RoundToInt(worldY * tilesPerUnit);
+        }
+
+        public static (int yardTop, int galleriesTop, int ancientTop) GetThresholds()
+            => (YardTopTileY, GalleriesTopTileY, AncientTopTileY);
     }
 }
-
