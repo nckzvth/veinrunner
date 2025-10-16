@@ -6,7 +6,7 @@ namespace Game.World
 {
     /// <summary>
     /// Keeps a (2*windowRadius+1)^2 grid of chunks loaded around player.
-    /// No saving yet (Month-1 goal).
+    /// Adds in-memory save cache so edits persist while streaming (no disk yet).
     /// </summary>
     public class WorldStreamer : MonoBehaviour
     {
@@ -19,6 +19,8 @@ namespace Game.World
         public int windowRadius = 1;
 
         readonly Dictionary<Vector2Int, TerrainChunk> _loaded = new();
+        readonly Dictionary<Vector2Int, ChunkSaveData> _cache = new(); // in-memory deltas
+
         Vector2Int _center;
 
         void Start()
@@ -41,13 +43,13 @@ namespace Game.World
             if (!force && at == _center) return;
             _center = at;
 
-            // target set
+            // target coords
             var target = new HashSet<Vector2Int>();
             for (int dy = -windowRadius; dy <= windowRadius; dy++)
                 for (int dx = -windowRadius; dx <= windowRadius; dx++)
                     target.Add(new Vector2Int(_center.x + dx, _center.y + dy));
 
-            // unload those no longer targeted
+            // unload
             var toRemove = new List<Vector2Int>();
             foreach (var kv in _loaded)
                 if (!target.Contains(kv.Key)) toRemove.Add(kv.Key);
@@ -56,17 +58,32 @@ namespace Game.World
             {
                 var key = toRemove[i];
                 if (_loaded.TryGetValue(key, out var chunk) && chunk)
-                    Destroy(chunk.gameObject); // Month-1: no pool, no save
+                {
+                    // Save delta to in-memory cache
+                    var data = chunk.BuildSaveData(key);
+                    _cache[key] = data;
+
+                    Destroy(chunk.gameObject); // Month-1: no pool, no disk save
+                }
                 _loaded.Remove(key);
             }
 
-            // load new
+            // load
             foreach (var key in target)
             {
                 if (_loaded.ContainsKey(key)) continue;
+
                 var c = world.CreateChunk(key, parent: world.transform);
+
+                // Re-apply deltas if we have any
+                if (_cache.TryGetValue(key, out var data) && data.IsValid(c.Pixels))
+                {
+                    c.ApplySaveData(data);
+                }
+
                 _loaded.Add(key, c);
             }
         }
     }
 }
+

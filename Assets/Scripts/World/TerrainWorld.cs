@@ -39,7 +39,13 @@ namespace Game.World
         [Tooltip("Solid if >= this many solid neighbors (8-neighborhood).")]
         [Range(0,8)] public int birthLimit = 5;   // B5
         [Tooltip("Solid survives if >= this many solid neighbors.")]
-        [Range(0,8)] public int surviveMin = 4;  // S45 (lower bound)
+        [Range(0, 8)] public int surviveMin = 4;  // S45 (lower bound)
+        
+        [Header("Passability Guard")]
+        [Tooltip("Minimum open corridor width in tiles. 2 is a good default.")]
+        [Range(1,4)] public int minCorridorWidth = 2;
+        [Tooltip("Apply passability guard (seam-safe).")]
+        public bool enablePassabilityGuard = true;
 
         [Header("Chunk")]
         public int chunkPixels = 64;
@@ -58,6 +64,10 @@ namespace Game.World
         Camera _cam;
         float _digAcc, _fillAcc;
         readonly List<TerrainChunk.RimSample> _rimScratch = new(256);
+
+        [Header("Content")]
+        public VeinTableSO veinTable;
+        public bool debugTintMaterials = true;
         
 
         // NEW: one global offset so adjacent chunks share the same noise field
@@ -120,6 +130,17 @@ namespace Game.World
             // 2) Seam-safe cellular smoothing (B5/S45) using world sampling along edges.
             if (smoothIterations > 0)
                 SmoothChunkSeamSafe(cxy, ref solid, smoothIterations, birthLimit, surviveMin);
+
+            // 3) Passability guard (seam-safe)
+            if (enablePassabilityGuard && minCorridorWidth > 1)
+                EnsurePassabilitySeamSafe(cxy, ref solid, minCorridorWidth);
+
+            // Determine band from tile Y (top row world Y)
+            int topTileY = cxy.y * chunkPixels; // tile coords since 1px == 1 tile
+            var band = BandResolver.BandFromY(topTileY);
+
+            // Paint veins deterministically (does not change solid[,]—only material[,])
+            VeinSpawner.ApplyVeins(seed, cxy, chunkPixels, band, veinTable, solid, material);
 
             return (solid, material);
         }
@@ -243,24 +264,24 @@ namespace Game.World
 
                         int solidNeighbors = 0;
                         for (int oy = -1; oy <= 1; oy++)
-                        for (int ox = -1; ox <= 1; ox++)
-                        {
-                            if (ox == 0 && oy == 0) continue;
-                            int nx = px + ox, ny = py + oy;
-                            bool neighborSolid;
+                            for (int ox = -1; ox <= 1; ox++)
+                            {
+                                if (ox == 0 && oy == 0) continue;
+                                int nx = px + ox, ny = py + oy;
+                                bool neighborSolid;
 
-                            if (nx >= 0 && ny >= 0 && nx < N && ny < N)
-                            {
-                                neighborSolid = solid[nx, ny];
+                                if (nx >= 0 && ny >= 0 && nx < N && ny < N)
+                                {
+                                    neighborSolid = solid[nx, ny];
+                                }
+                                else
+                                {
+                                    // Outside this chunk? Sample the same global field
+                                    // so smoothing is continuous across borders.
+                                    neighborSolid = BaseSolidAtWorld(wx + ox, wy + oy);
+                                }
+                                if (neighborSolid) solidNeighbors++;
                             }
-                            else
-                            {
-                                // Outside this chunk? Sample the same global field
-                                // so smoothing is continuous across borders.
-                                neighborSolid = BaseSolidAtWorld(wx + ox, wy + oy);
-                            }
-                            if (neighborSolid) solidNeighbors++;
-                        }
 
                         bool current = solid[px, py];
                         bool next = current
@@ -276,6 +297,74 @@ namespace Game.World
                 buffer = tmp;
             }
         }
+        // Enforce ≥ minWidth corridors and remove 1px diagonals, seam-safe across chunk edges.
+        void EnsurePassabilitySeamSafe(Vector2Int cxy, ref bool[,] solid, int minWidth)
+        {
+            int N = chunkPixels;
+            // 1) Remove single-pixel diagonal connections (4-neighborhood continuity)
+            bool changed;
+            do
+            {
+                changed = false;
+                for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    if (solid[x, y]) continue; // only consider open tiles
+                    // Diagonal bridges: open with both orthogonal neighbors blocked
+                    // Check 4 diagonal patterns
+                    if (IsSolidWorld(cxy, x-1, y, solid) && IsSolidWorld(cxy, x, y-1, solid) && !IsSolidWorld(cxy, x-1, y-1, solid))
+                    { solid[x, y] = true; changed = true; }
+                    else if (IsSolidWorld(cxy, x+1, y, solid) && IsSolidWorld(cxy, x, y-1, solid) && !IsSolidWorld(cxy, x+1, y-1, solid))
+                    { solid[x, y] = true; changed = true; }
+                    else if (IsSolidWorld(cxy, x-1, y, solid) && IsSolidWorld(cxy, x, y+1, solid) && !IsSolidWorld(cxy, x-1, y+1, solid))
+                    { solid[x, y] = true; changed = true; }
+                    else if (IsSolidWorld(cxy, x+1, y, solid) && IsSolidWorld(cxy, x, y+1, solid) && !IsSolidWorld(cxy, x+1, y+1, solid))
+                    { solid[x, y] = true; changed = true; }
+                }
+            } while (changed);
+
+            // 2) Enforce minimum corridor width (Manhattan).
+            // If an open tile is pinched by solids such that either horizontal or vertical open run is < minWidth, fill it.
+            // (Fast approximation that yields smoother walkable space.)
+            var buf = (bool[,])solid.Clone();
+            for (int y = 0; y < N; y++)
+            for (int x = 0; x < N; x++)
+            {
+                if (solid[x, y]) continue; // only open tiles
+                int openH = 1 + CountOpenDir(cxy, x, y, -1, 0, solid) + CountOpenDir(cxy, x, y, 1, 0, solid);
+                int openV = 1 + CountOpenDir(cxy, x, y, 0, -1, solid) + CountOpenDir(cxy, x, y, 0, 1, solid);
+                if (openH < minWidth || openV < minWidth)
+                    buf[x, y] = true; // fill to widen corridors
+            }
+            solid = buf;
+        }
+
+        // Seam-safe “is solid” that samples base field outside this chunk
+        bool IsSolidWorld(Vector2Int cxy, int px, int py, bool[,] solid)
+        {
+            int N = chunkPixels;
+            if (px >= 0 && py >= 0 && px < N && py < N) return solid[px, py];
+
+            int wx = cxy.x * N + px;
+            int wy = cxy.y * N + py;
+            return BaseSolidAtWorld(wx, wy);
+        }
+
+        int CountOpenDir(Vector2Int cxy, int px, int py, int dx, int dy, bool[,] solid)
+        {
+            int N = chunkPixels;
+            int count = 0;
+            for (int step = 1; step < 8; step++) // small horizon is fine for 64px chunks
+            {
+                int nx = px + dx * step;
+                int ny = py + dy * step;
+                bool isSolid = IsSolidWorld(cxy, nx, ny, solid);
+                if (isSolid) break;
+                count++;
+            }
+            return count;
+        }
+
 
         public float ChunkWorldSize => _chunkWorldSize;
     }
