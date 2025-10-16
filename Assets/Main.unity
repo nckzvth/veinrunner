@@ -205,6 +205,8 @@ MonoBehaviour:
   smoothIterations: 2
   birthLimit: 7
   surviveMin: 4
+  minCorridorWidth: 4
+  enablePassabilityGuard: 1
   chunkPixels: 64
   pixelsPerUnit: 32
   spriteMat: {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}

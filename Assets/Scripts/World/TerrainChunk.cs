@@ -20,6 +20,12 @@ namespace Game.World
         // Snapshot of generated base solidity for delta saves
         bool[,] _baseSolid;
 
+        // Snapshot of generated base material map (for ore checks)
+        byte[,] _baseMaterial;
+
+        // Runtime ore-consumed mask: once true, ore should never reappear here
+        bool[,] _oreConsumed;
+
         Texture2D _tex;
         Color32[] _pixels;
         SpriteRenderer _sr;
@@ -67,6 +73,11 @@ namespace Game.World
             if (_baseSolid == null)
                 _baseSolid = CloneBoolGrid(_solid);
 
+            if (_baseMaterial == null)
+                _baseMaterial = (byte[,])_material.Clone();
+            if (_oreConsumed == null)
+                _oreConsumed = new bool[_px, _px];
+                
             UploadTexture();
             RebuildCollidersGreedy();
         }
@@ -76,29 +87,35 @@ namespace Game.World
         /// <summary>Build deltas vs base map: mined (base=solid, now air), filled (base=air, now solid).</summary>
         public ChunkSaveData BuildSaveData(Vector2Int coord)
         {
-            var mined = new byte[BitBytesCount(_px)];
+            var mined  = new byte[BitBytesCount(_px)];
             var filled = new byte[BitBytesCount(_px)];
+            var ore    = new byte[BitBytesCount(_px)];
 
             int bitIndex = 0;
             for (int y = 0; y < _px; y++)
-                for (int x = 0; x < _px; x++, bitIndex++)
-                {
-                    bool wasSolid = _baseSolid[x, y];
-                    bool nowSolid = _solid[x, y];
+            for (int x = 0; x < _px; x++, bitIndex++)
+            {
+                bool wasSolid = _baseSolid[x, y];
+                bool nowSolid = _solid[x, y];
 
-                    if (wasSolid && !nowSolid) SetBit(mined, bitIndex, true);
-                    else if (!wasSolid && nowSolid) SetBit(filled, bitIndex, true);
-                }
+                if (wasSolid && !nowSolid) SetBit(mined, bitIndex, true);
+                else if (!wasSolid && nowSolid) SetBit(filled, bitIndex, true);
+
+                if (_oreConsumed != null && _oreConsumed[x, y])
+                    SetBit(ore, bitIndex, true);
+            }
 
             return new ChunkSaveData(
-                v: 1,
+                v: 2, // NEW VERSION
                 x: coord.x,
                 y: coord.y,
                 s: _px,
                 mined: mined,
-                filled: filled
+                filled: filled,
+                oreConsumed: ore
             );
         }
+
 
         /// <summary>Apply deltas onto current maps, then refresh texture & colliders.</summary>
         public void ApplySaveData(in ChunkSaveData data)
@@ -107,16 +124,25 @@ namespace Game.World
 
             int bitIndex = 0;
             for (int y = 0; y < _px; y++)
-                for (int x = 0; x < _px; x++, bitIndex++)
-                {
-                    bool wasSolid = _baseSolid[x, y];
-                    bool nowSolid = wasSolid;
+            for (int x = 0; x < _px; x++, bitIndex++)
+            {
+                // Base solidity -> now solidity from mined/filled
+                bool wasSolid = _baseSolid[x, y];
+                bool nowSolid = wasSolid;
 
-                    if (GetBit(data.minedBits, bitIndex)) nowSolid = false;
-                    if (GetBit(data.filledBits, bitIndex)) nowSolid = true;
+                if (GetBit(data.minedBits, bitIndex))  nowSolid = false;
+                if (GetBit(data.filledBits, bitIndex)) nowSolid = true;
 
-                    _solid[x, y] = nowSolid;
-                }
+                _solid[x, y] = nowSolid;
+
+                // Ore-consumed: if set, ensure material is cleared and remember it runtime
+                bool consumed = (data.version >= 2) && data.oreConsumedBits != null && GetBit(data.oreConsumedBits, bitIndex);
+                if (_oreConsumed == null) _oreConsumed = new bool[_px, _px];
+                _oreConsumed[x, y] = consumed || (_oreConsumed != null && _oreConsumed[x, y]);
+
+                if (_oreConsumed[x, y])
+                    _material[x, y] = 0; // never re-tint this tile with ore
+            }
 
             UploadTexture();
             RebuildCollidersGreedy();
@@ -203,18 +229,22 @@ namespace Game.World
                 bool after = (mode == BrushMode.Fill);
                 if (_solid[x, y] == after) continue;
 
-                _solid[x, y] = after;
-
-                // NEW: normalize material so edited tiles never keep/restore ore IDs
+                    _solid[x, y] = after;
+                
+                // when digging/filling, never preserve ore IDs in edited tiles
                 if (mode == BrushMode.Dig)
                 {
+                    // If this tile currently has ore material, mark it consumed forever
+                    if (_material[x, y] != 0) _oreConsumed[x, y] = true;
+
+                    _solid[x, y] = false;
                     _material[x, y] = 0; // mined tile loses ore tag
                 }
                 else // Fill
                 {
-                    _material[x, y] = 0; // filled rock is base rock, not ore
+                    _solid[x, y] = true;
+                    _material[x, y] = 0; // filled rock is just base rock, not ore
                 }
-
                 changed = true;
 
                     if (rimOut != null && rimOut.Count < rimCap)
