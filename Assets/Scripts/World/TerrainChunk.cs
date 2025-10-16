@@ -198,15 +198,24 @@ namespace Game.World
                 int xlo = Mathf.Max(xmin, cx - dxMax);
                 int xhi = Mathf.Min(xmax, cx + dxMax);
 
-                for (int x = xlo; x <= xhi; x++)
+            for (int x = xlo; x <= xhi; x++)
+            {
+                bool after = (mode == BrushMode.Fill);
+                if (_solid[x, y] == after) continue;
+
+                _solid[x, y] = after;
+
+                // NEW: normalize material so edited tiles never keep/restore ore IDs
+                if (mode == BrushMode.Dig)
                 {
-                    bool after = (mode == BrushMode.Fill);
-                    if (_solid[x, y] == after) continue;
+                    _material[x, y] = 0; // mined tile loses ore tag
+                }
+                else // Fill
+                {
+                    _material[x, y] = 0; // filled rock is base rock, not ore
+                }
 
-                    _solid[x, y] = after;
-                    if (after && _material[x, y] == 0) _material[x, y] = 0;
-
-                    changed = true;
+                changed = true;
 
                     if (rimOut != null && rimOut.Count < rimCap)
                     {
