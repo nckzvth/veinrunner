@@ -29,18 +29,18 @@ namespace Game.World
 
         public void Init(int pixels, float pixelsPerUnit, Material spriteMat)
         {
-            _px  = pixels;
+            _px = pixels;
             _ppu = pixelsPerUnit;
             _mat = spriteMat;
 
-            _solid    = new bool[_px, _px];
+            _solid = new bool[_px, _px];
             _material = new byte[_px, _px];
-            _pixels   = new Color32[_px * _px];
+            _pixels = new Color32[_px * _px];
 
             _tex = new Texture2D(_px, _px, TextureFormat.RGBA32, false, false)
             {
                 filterMode = FilterMode.Point,
-                wrapMode   = TextureWrapMode.Clamp
+                wrapMode = TextureWrapMode.Clamp
             };
 
             _sr = GetComponent<SpriteRenderer>();
@@ -81,14 +81,14 @@ namespace Game.World
 
             int bitIndex = 0;
             for (int y = 0; y < _px; y++)
-            for (int x = 0; x < _px; x++, bitIndex++)
-            {
-                bool wasSolid = _baseSolid[x, y];
-                bool nowSolid = _solid[x, y];
+                for (int x = 0; x < _px; x++, bitIndex++)
+                {
+                    bool wasSolid = _baseSolid[x, y];
+                    bool nowSolid = _solid[x, y];
 
-                if (wasSolid && !nowSolid) SetBit(mined, bitIndex, true);
-                else if (!wasSolid && nowSolid) SetBit(filled, bitIndex, true);
-            }
+                    if (wasSolid && !nowSolid) SetBit(mined, bitIndex, true);
+                    else if (!wasSolid && nowSolid) SetBit(filled, bitIndex, true);
+                }
 
             return new ChunkSaveData(
                 v: 1,
@@ -107,16 +107,16 @@ namespace Game.World
 
             int bitIndex = 0;
             for (int y = 0; y < _px; y++)
-            for (int x = 0; x < _px; x++, bitIndex++)
-            {
-                bool wasSolid = _baseSolid[x, y];
-                bool nowSolid = wasSolid;
+                for (int x = 0; x < _px; x++, bitIndex++)
+                {
+                    bool wasSolid = _baseSolid[x, y];
+                    bool nowSolid = wasSolid;
 
-                if (GetBit(data.minedBits, bitIndex)) nowSolid = false;
-                if (GetBit(data.filledBits, bitIndex)) nowSolid = true;
+                    if (GetBit(data.minedBits, bitIndex)) nowSolid = false;
+                    if (GetBit(data.filledBits, bitIndex)) nowSolid = true;
 
-                _solid[x, y] = nowSolid;
-            }
+                    _solid[x, y] = nowSolid;
+                }
 
             UploadTexture();
             RebuildCollidersGreedy();
@@ -139,7 +139,7 @@ namespace Game.World
             int b = idx >> 3;
             int m = 1 << (idx & 7);
             if (v) arr[b] = (byte)(arr[b] | m);
-            else   arr[b] = (byte)(arr[b] & ~m);
+            else arr[b] = (byte)(arr[b] & ~m);
         }
 
         static bool GetBit(byte[] arr, int idx)
@@ -182,7 +182,7 @@ namespace Game.World
 
             int cx = Mathf.RoundToInt(fx);
             int cy = Mathf.RoundToInt(fy);
-            int r  = Mathf.RoundToInt(worldRadius * _ppu);
+            int r = Mathf.RoundToInt(worldRadius * _ppu);
 
             bool changed = false;
 
@@ -253,8 +253,8 @@ namespace Game.World
         {
             int i = 0;
             for (int y = 0; y < _px; y++)
-            for (int x = 0; x < _px; x++, i++)
-                _pixels[i] = _solid[x, y] ? new Color32(60, 64, 72, 255) : new Color32(0, 0, 0, 0);
+                for (int x = 0; x < _px; x++, i++)
+                    _pixels[i] = _solid[x, y] ? MatColor(_material[x, y]) : new Color32(0, 0, 0, 0);
 
             _tex.SetPixels32(_pixels);
             _tex.Apply(false, false);
@@ -268,8 +268,8 @@ namespace Game.World
             var slice = new Color32[w * h];
             int si = 0;
             for (int y = ymin; y <= ymax; y++)
-            for (int x = xmin; x <= xmax; x++, si++)
-                slice[si] = _solid[x, y] ? new Color32(60, 64, 72, 255) : new Color32(0, 0, 0, 0);
+                for (int x = xmin; x <= xmax; x++, si++)
+                    slice[si] = _solid[x, y] ? MatColor(_material[x, y]) : new Color32(0, 0, 0, 0);
 
             _tex.SetPixels32(xmin, ymin, w, h, slice, 0);
             _tex.Apply(false, false);
@@ -336,6 +336,19 @@ namespace Game.World
 
         public int Pixels => _px;
         public float PPU => _ppu;
+    static Color32 MatColor(byte mat)
+{
+    // Temporary debug tints for ore materials
+    // 0=dirt/stone, 1=copper, 2=iron, 3=gold
+    switch (mat)
+    {
+        case 1: return new Color32(196, 118, 56, 255);   // copper-ish
+        case 2: return new Color32(92, 124, 164, 255);   // iron-ish
+        case 3: return new Color32(216, 188, 72, 255);   // gold-ish
+        default: return new Color32(60, 64, 72, 255);    // base rock
+    }
+}
+
     }
 }
 

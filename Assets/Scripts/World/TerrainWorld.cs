@@ -58,6 +58,10 @@ namespace Game.World
         Camera _cam;
         float _digAcc, _fillAcc;
         readonly List<TerrainChunk.RimSample> _rimScratch = new(256);
+
+        [Header("Content")]
+        public VeinTableSO veinTable;
+        public bool debugTintMaterials = true;
         
 
         // NEW: one global offset so adjacent chunks share the same noise field
@@ -120,6 +124,13 @@ namespace Game.World
             // 2) Seam-safe cellular smoothing (B5/S45) using world sampling along edges.
             if (smoothIterations > 0)
                 SmoothChunkSeamSafe(cxy, ref solid, smoothIterations, birthLimit, surviveMin);
+
+            // Determine band from tile Y (top row world Y)
+            int topTileY = cxy.y * chunkPixels; // tile coords since 1px == 1 tile
+            var band = BandResolver.BandFromY(topTileY);
+
+            // Paint veins deterministically (does not change solid[,]—only material[,])
+            VeinSpawner.ApplyVeins(seed, cxy, chunkPixels, band, veinTable, solid, material);
 
             return (solid, material);
         }

@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c19a70a7863424ff2a9a90c28aa4a65e, type: 3}
+  m_Name: VeinTable
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Data.VeinTableSO
+  yard:
+    spawnChance: 0.1
+    material: 1
+    clusterRadiusPx: 6
+    density: 0.55
+  galleries:
+    spawnChance: 0.08
+    material: 2
+    clusterRadiusPx: 7
+    density: 0.55
+  ancient:
+    spawnChance: 0.06
+    material: 3
+    clusterRadiusPx: 8
+    density: 0.55
