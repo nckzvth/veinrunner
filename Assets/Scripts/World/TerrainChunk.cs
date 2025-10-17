@@ -1,3 +1,4 @@
+// File: Assets/Scripts/World/TerrainChunk.cs
 // Namespace: Game.World
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,18 +10,20 @@ namespace Game.World
     {
         public enum BrushMode { Dig, Fill }
 
+        // Shipping baseline: Greedy Boxes merged by Composite (stable & scalable)
+        public enum ColliderMode { GreedyBoxes /* Polygon disabled for now */ }
+        public ColliderMode colliderMode = ColliderMode.GreedyBoxes;
+
         int _px;                 // texture size (e.g., 64)
         float _ppu;              // pixels-per-unit
         Material _mat;
 
-        // Dual-grid: occupancy + material id (future ore types; 0 = default)
+        // Dual-grid: occupancy + material id (0 = base rock)
         bool[,] _solid;
         byte[,] _material;
 
-        // Snapshot of generated base solidity for delta saves
+        // Base snapshots for delta save
         bool[,] _baseSolid;
-
-        // Snapshot of generated base material map (for ore checks)
         byte[,] _baseMaterial;
 
         // Runtime ore-consumed mask: once true, ore should never reappear here
@@ -30,9 +33,18 @@ namespace Game.World
         Color32[] _pixels;
         SpriteRenderer _sr;
 
-        // pooled rectangular colliders
+        // pooled rectangular colliders (source for Composite)
         readonly List<BoxCollider2D> _colliders = new();
 
+        // collider rebuild tracking
+        RectInt _dirtyAABB = new RectInt(-1, -1, 0, 0);
+        bool _rebuildQueued;
+
+        CompositeCollider2D _composite; // <— NEW (merged final collider)
+
+        // ---------------------------------------------------------------------
+        // Init & setup
+        // ---------------------------------------------------------------------
         public void Init(int pixels, float pixelsPerUnit, Material spriteMat)
         {
             _px = pixels;
@@ -59,54 +71,60 @@ namespace Game.World
             if (!rb) rb = gameObject.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Static;
 
+            // Add/Configure CompositeCollider2D once on the chunk GO
+            _composite = GetComponent<CompositeCollider2D>();
+            if (!_composite) _composite = gameObject.AddComponent<CompositeCollider2D>();
+            _composite.geometryType = CompositeCollider2D.GeometryType.Polygons;
+            _composite.generationType = CompositeCollider2D.GenerationType.Synchronous;
+            _composite.vertexDistance = 0.0001f; // tight joins on grid
+            _composite.offsetDistance = 0f;
+
             // Preserve parent layer (expected "Ground")
             gameObject.layer = gameObject.layer;
         }
 
-        /// <summary>
-        /// Sets current maps; on first call also snapshots base map for delta saves.
-        /// </summary>
+        /// <summary>Sets current maps; on first call also snapshots base map for delta saves.</summary>
         public void SetMaps(bool[,] solid, byte[,] material)
         {
             _solid = solid;
             _material = material;
+
             if (_baseSolid == null)
                 _baseSolid = CloneBoolGrid(_solid);
-
             if (_baseMaterial == null)
                 _baseMaterial = (byte[,])_material.Clone();
             if (_oreConsumed == null)
                 _oreConsumed = new bool[_px, _px];
-                
+
             UploadTexture();
-            RebuildCollidersGreedy();
+            RebuildColliders();
         }
 
-        // === Delta Save/Load API ===
-
-        /// <summary>Build deltas vs base map: mined (base=solid, now air), filled (base=air, now solid).</summary>
+        // ---------------------------------------------------------------------
+        // Delta Save/Load
+        // ---------------------------------------------------------------------
         public ChunkSaveData BuildSaveData(Vector2Int coord)
         {
-            var mined  = new byte[BitBytesCount(_px)];
+            var mined = new byte[BitBytesCount(_px)];
             var filled = new byte[BitBytesCount(_px)];
-            var ore    = new byte[BitBytesCount(_px)];
+            var ore = new byte[BitBytesCount(_px)];
 
             int bitIndex = 0;
             for (int y = 0; y < _px; y++)
-            for (int x = 0; x < _px; x++, bitIndex++)
-            {
-                bool wasSolid = _baseSolid[x, y];
-                bool nowSolid = _solid[x, y];
+                for (int x = 0; x < _px; x++, bitIndex++)
+                {
+                    bool wasSolid = _baseSolid[x, y];
+                    bool nowSolid = _solid[x, y];
 
-                if (wasSolid && !nowSolid) SetBit(mined, bitIndex, true);
-                else if (!wasSolid && nowSolid) SetBit(filled, bitIndex, true);
+                    if (wasSolid && !nowSolid) SetBit(mined, bitIndex, true);
+                    else if (!wasSolid && nowSolid) SetBit(filled, bitIndex, true);
 
-                if (_oreConsumed != null && _oreConsumed[x, y])
-                    SetBit(ore, bitIndex, true);
-            }
+                    if (_oreConsumed != null && _oreConsumed[x, y])
+                        SetBit(ore, bitIndex, true);
+                }
 
             return new ChunkSaveData(
-                v: 2, // NEW VERSION
+                v: 2,
                 x: coord.x,
                 y: coord.y,
                 s: _px,
@@ -116,36 +134,30 @@ namespace Game.World
             );
         }
 
-
-        /// <summary>Apply deltas onto current maps, then refresh texture & colliders.</summary>
         public void ApplySaveData(in ChunkSaveData data)
         {
             if (!data.IsValid(_px) || _baseSolid == null) return;
 
             int bitIndex = 0;
             for (int y = 0; y < _px; y++)
-            for (int x = 0; x < _px; x++, bitIndex++)
-            {
-                // Base solidity -> now solidity from mined/filled
-                bool wasSolid = _baseSolid[x, y];
-                bool nowSolid = wasSolid;
+                for (int x = 0; x < _px; x++, bitIndex++)
+                {
+                    bool wasSolid = _baseSolid[x, y];
+                    bool nowSolid = wasSolid;
 
-                if (GetBit(data.minedBits, bitIndex))  nowSolid = false;
-                if (GetBit(data.filledBits, bitIndex)) nowSolid = true;
+                    if (GetBit(data.minedBits, bitIndex)) nowSolid = false;
+                    if (GetBit(data.filledBits, bitIndex)) nowSolid = true;
+                    _solid[x, y] = nowSolid;
 
-                _solid[x, y] = nowSolid;
+                    bool consumed = (data.version >= 2) && data.oreConsumedBits != null && GetBit(data.oreConsumedBits, bitIndex);
+                    if (_oreConsumed == null) _oreConsumed = new bool[_px, _px];
+                    _oreConsumed[x, y] = consumed || _oreConsumed[x, y];
 
-                // Ore-consumed: if set, ensure material is cleared and remember it runtime
-                bool consumed = (data.version >= 2) && data.oreConsumedBits != null && GetBit(data.oreConsumedBits, bitIndex);
-                if (_oreConsumed == null) _oreConsumed = new bool[_px, _px];
-                _oreConsumed[x, y] = consumed || (_oreConsumed != null && _oreConsumed[x, y]);
-
-                if (_oreConsumed[x, y])
-                    _material[x, y] = 0; // never re-tint this tile with ore
-            }
+                    if (_oreConsumed[x, y]) _material[x, y] = 0; // ore never reappears
+                }
 
             UploadTexture();
-            RebuildCollidersGreedy();
+            RebuildColliders();
         }
 
         static bool[,] CloneBoolGrid(bool[,] src)
@@ -175,8 +187,9 @@ namespace Game.World
             return (arr[b] & m) != 0;
         }
 
-        // === Mining & rendering (unchanged) ===
-
+        // ---------------------------------------------------------------------
+        // Mining & rendering
+        // ---------------------------------------------------------------------
         public struct RimSample
         {
             public Vector2 worldPos;
@@ -224,28 +237,23 @@ namespace Game.World
                 int xlo = Mathf.Max(xmin, cx - dxMax);
                 int xhi = Mathf.Min(xmax, cx + dxMax);
 
-            for (int x = xlo; x <= xhi; x++)
-            {
-                bool after = (mode == BrushMode.Fill);
-                if (_solid[x, y] == after) continue;
-
-                    _solid[x, y] = after;
-                
-                // when digging/filling, never preserve ore IDs in edited tiles
-                if (mode == BrushMode.Dig)
+                for (int x = xlo; x <= xhi; x++)
                 {
-                    // If this tile currently has ore material, mark it consumed forever
-                    if (_material[x, y] != 0) _oreConsumed[x, y] = true;
+                    bool after = (mode == BrushMode.Fill);
+                    if (_solid[x, y] == after) continue;
 
-                    _solid[x, y] = false;
-                    _material[x, y] = 0; // mined tile loses ore tag
-                }
-                else // Fill
-                {
-                    _solid[x, y] = true;
-                    _material[x, y] = 0; // filled rock is just base rock, not ore
-                }
-                changed = true;
+                    if (mode == BrushMode.Dig)
+                    {
+                        if (_material[x, y] != 0) _oreConsumed[x, y] = true;
+                        _solid[x, y] = false;
+                        _material[x, y] = 0;
+                    }
+                    else // Fill
+                    {
+                        _solid[x, y] = true;
+                        _material[x, y] = 0;
+                    }
+                    changed = true;
 
                     if (rimOut != null && rimOut.Count < rimCap)
                     {
@@ -283,7 +291,13 @@ namespace Game.World
             if (changed)
             {
                 UploadTexture(xmin, ymin, xmax, ymax);
-                RebuildCollidersGreedy();
+
+                if (_dirtyAABB.width <= 0)
+                    _dirtyAABB = new RectInt(xmin, ymin, xmax - xmin + 1, ymax - ymin + 1);
+                else
+                    _dirtyAABB = ExpandRect(_dirtyAABB, xmin, ymin, xmax, ymax);
+
+                _rebuildQueued = true;
             }
             return changed;
         }
@@ -314,8 +328,12 @@ namespace Game.World
             _tex.Apply(false, false);
         }
 
+        // ---------------------------------------------------------------------
+        // Greedy rectangles (source) → CompositeCollider2D (merged output)
+        // ---------------------------------------------------------------------
         void RebuildCollidersGreedy()
         {
+            // disable all pooled boxes
             for (int i = 0; i < _colliders.Count; i++) _colliders[i].enabled = false;
 
             bool[,] visited = new bool[_px, _px];
@@ -342,9 +360,12 @@ namespace Game.World
                         for (int xx = x; xx <= maxX; xx++)
                             visited[xx, yy] = true;
 
-                    AddOrReuseBox(x, y, maxX, maxY);
+                    AddOrReuseBox(x, y, maxX, maxY); // child sources for Composite
                 }
             }
+
+            // Force Composite to rebuild now (synchronous)
+            if (_composite) _ = _composite.pathCount; // touching it forces internal rebuild this frame
         }
 
         void AddOrReuseBox(int x0, int y0, int x1, int y1)
@@ -355,7 +376,8 @@ namespace Game.World
             if (!bc)
             {
                 bc = gameObject.AddComponent<BoxCollider2D>();
-                bc.compositeOperation = Collider2D.CompositeOperation.None;
+                // Feed into Composite instead of being a separate collider
+                bc.compositeOperation = Collider2D.CompositeOperation.Merge;
                 _colliders.Add(bc);
             }
 
@@ -371,23 +393,70 @@ namespace Game.World
 
             bc.size = new Vector2(w, h);
             bc.offset = new Vector2(cx, cy);
+
+            // IMPORTANT: make sure it’s still set to merge (in case of pooled reused component)
+            bc.compositeOperation = Collider2D.CompositeOperation.Merge;
+            bc.isTrigger = false;
         }
 
         public int Pixels => _px;
         public float PPU => _ppu;
-    static Color32 MatColor(byte mat)
-{
-    // Temporary debug tints for ore materials
-    // 0=dirt/stone, 1=copper, 2=iron, 3=gold
-    switch (mat)
-    {
-        case 1: return new Color32(196, 118, 56, 255);   // copper-ish
-        case 2: return new Color32(92, 124, 164, 255);   // iron-ish
-        case 3: return new Color32(216, 188, 72, 255);   // gold-ish
-        default: return new Color32(60, 64, 72, 255);    // base rock
+
+        static Color32 MatColor(byte mat)
+        {
+            // 0=dirt/stone, 1=copper, 2=iron, 3=gold
+            switch (mat)
+            {
+                case 1: return new Color32(196, 118, 56, 255);
+                case 2: return new Color32(92, 124, 164, 255);
+                case 3: return new Color32(216, 188, 72, 255);
+                default: return new Color32(60, 64, 72, 255);
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Collider dispatcher
+        // ---------------------------------------------------------------------
+        void RebuildColliders()
+        {
+            // Only Greedy (merged by Composite) is active for this slice
+            RebuildCollidersGreedy();
+        }
+
+        // ---------------------------------------------------------------------
+        // Utilities
+        // ---------------------------------------------------------------------
+        public void ForceRebuildCollidersNow(bool renameWithStats = false)
+        {
+            RebuildColliders();
+            if (renameWithStats)
+            {
+                int boxEnabled = 0;
+                for (int i = 0; i < _colliders.Count; i++)
+                    if (_colliders[i].enabled) boxEnabled++;
+
+                int paths = _composite ? _composite.pathCount : 0;
+                gameObject.name = $"Chunk_{transform.position.x:0}_{transform.position.y:0} [CompositeGreedy] boxes:{boxEnabled} paths:{paths}";
+            }
+        }
+
+        static RectInt ExpandRect(RectInt r, int xmin, int ymin, int xmax, int ymax)
+        {
+            int xMin = Mathf.Min(r.xMin, xmin);
+            int yMin = Mathf.Min(r.yMin, ymin);
+            int xMax = Mathf.Max(r.xMax, xmax);
+            int yMax = Mathf.Max(r.yMax, ymax);
+            return new RectInt(xMin, yMin, xMax - xMin + 1, yMax - yMin + 1);
+        }
+
+        void LateUpdate()
+        {
+            if (!_rebuildQueued) return;
+            _rebuildQueued = false;
+
+            // Greedy+Composite: rebuild here once per frame after edits
+            _dirtyAABB = new RectInt(-1, -1, 0, 0);
+            RebuildColliders();
+        }
     }
 }
-
-    }
-}
-

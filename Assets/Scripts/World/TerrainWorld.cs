@@ -35,15 +35,15 @@ namespace Game.World
 
         [Header("Cave Smoothing")]
         [Tooltip("How many cellular passes to run (2–3 typical).")]
-        [Range(0,6)] public int smoothIterations = 2;
+        [Range(0, 6)] public int smoothIterations = 2;
         [Tooltip("Solid if >= this many solid neighbors (8-neighborhood).")]
-        [Range(0,8)] public int birthLimit = 5;   // B5
+        [Range(0, 8)] public int birthLimit = 5;   // B5
         [Tooltip("Solid survives if >= this many solid neighbors.")]
         [Range(0, 8)] public int surviveMin = 4;  // S45 (lower bound)
-        
+
         [Header("Passability Guard")]
         [Tooltip("Minimum open corridor width in tiles. 2 is a good default.")]
-        [Range(1,4)] public int minCorridorWidth = 2;
+        [Range(1, 4)] public int minCorridorWidth = 2;
         [Tooltip("Apply passability guard (seam-safe).")]
         public bool enablePassabilityGuard = true;
 
@@ -51,6 +51,11 @@ namespace Game.World
         public int chunkPixels = 64;
         public float pixelsPerUnit = 32f;
         public Material spriteMat;
+
+        [Header("Colliders")]
+        public TerrainChunk.ColliderMode defaultColliderMode = TerrainChunk.ColliderMode.GreedyBoxes;
+        public bool showChunkDebugInName = true; // optional: rename chunks with stats
+
 
         [Header("Brush (Debug Mining)")]
         public float brushWorldRadius = 0.35f;
@@ -68,7 +73,7 @@ namespace Game.World
         [Header("Content")]
         public VeinTableSO veinTable;
         public bool debugTintMaterials = true;
-        
+
 
         // NEW: one global offset so adjacent chunks share the same noise field
         Vector2 _noiseOffset;
@@ -83,7 +88,7 @@ namespace Game.World
             // Deterministic offsets from seed (stable across all chunks)
             var rng = new System.Random(seed);
             _noiseOffset = new Vector2(rng.Next(0, 100000), rng.Next(0, 100000));
-            _warpOffset  = new Vector2(rng.Next(0, 100000), rng.Next(0, 100000));
+            _warpOffset = new Vector2(rng.Next(0, 100000), rng.Next(0, 100000));
         }
 
         public TerrainChunk CreateChunk(Vector2Int cxy, Transform parent = null)
@@ -96,7 +101,12 @@ namespace Game.World
             go.layer = gameObject.layer;
 
             var c = go.AddComponent<TerrainChunk>();
+            // Force the stable path: Greedy boxes (merged by Composite inside TerrainChunk)
+            c.colliderMode = TerrainChunk.ColliderMode.GreedyBoxes;
             c.Init(chunkPixels, pixelsPerUnit, spriteMat);
+
+            // (Optional) ensure the inspector default reflects this forced value
+            defaultColliderMode = TerrainChunk.ColliderMode.GreedyBoxes;
 
             go.transform.position = new Vector2(
                 (cxy.x + 0.5f) * _chunkWorldSize,
@@ -108,7 +118,7 @@ namespace Game.World
             return c;
         }
 
-       public (bool[,] solid, byte[,] material) GenerateMapsForChunk(Vector2Int cxy)
+        public (bool[,] solid, byte[,] material) GenerateMapsForChunk(Vector2Int cxy)
         {
             int N = chunkPixels;
             bool[,] solid = new bool[N, N];
@@ -170,6 +180,11 @@ namespace Game.World
                 while (_fillAcc >= step) { _fillAcc -= step; Stroke(false); }
             }
             else _fillAcc = 0f;
+
+            if (Keyboard.current != null && Keyboard.current.f1Key.wasPressedThisFrame)
+            {
+                ToggleAllChunkColliders();
+            }
         }
 
         float Fbm(float x, float y)
@@ -180,9 +195,9 @@ namespace Game.World
             float norm = 0f;
             for (int i = 0; i < octaves; i++)
             {
-                sum  += amp * Mathf.PerlinNoise(x * freq, y * freq);
+                sum += amp * Mathf.PerlinNoise(x * freq, y * freq);
                 norm += amp;
-                amp  *= gain;
+                amp *= gain;
                 freq *= lacunarity;
             }
             return (norm > 0f) ? (sum / norm) : 0.5f;
@@ -307,20 +322,20 @@ namespace Game.World
             {
                 changed = false;
                 for (int y = 0; y < N; y++)
-                for (int x = 0; x < N; x++)
-                {
-                    if (solid[x, y]) continue; // only consider open tiles
-                    // Diagonal bridges: open with both orthogonal neighbors blocked
-                    // Check 4 diagonal patterns
-                    if (IsSolidWorld(cxy, x-1, y, solid) && IsSolidWorld(cxy, x, y-1, solid) && !IsSolidWorld(cxy, x-1, y-1, solid))
-                    { solid[x, y] = true; changed = true; }
-                    else if (IsSolidWorld(cxy, x+1, y, solid) && IsSolidWorld(cxy, x, y-1, solid) && !IsSolidWorld(cxy, x+1, y-1, solid))
-                    { solid[x, y] = true; changed = true; }
-                    else if (IsSolidWorld(cxy, x-1, y, solid) && IsSolidWorld(cxy, x, y+1, solid) && !IsSolidWorld(cxy, x-1, y+1, solid))
-                    { solid[x, y] = true; changed = true; }
-                    else if (IsSolidWorld(cxy, x+1, y, solid) && IsSolidWorld(cxy, x, y+1, solid) && !IsSolidWorld(cxy, x+1, y+1, solid))
-                    { solid[x, y] = true; changed = true; }
-                }
+                    for (int x = 0; x < N; x++)
+                    {
+                        if (solid[x, y]) continue; // only consider open tiles
+                                                   // Diagonal bridges: open with both orthogonal neighbors blocked
+                                                   // Check 4 diagonal patterns
+                        if (IsSolidWorld(cxy, x - 1, y, solid) && IsSolidWorld(cxy, x, y - 1, solid) && !IsSolidWorld(cxy, x - 1, y - 1, solid))
+                        { solid[x, y] = true; changed = true; }
+                        else if (IsSolidWorld(cxy, x + 1, y, solid) && IsSolidWorld(cxy, x, y - 1, solid) && !IsSolidWorld(cxy, x + 1, y - 1, solid))
+                        { solid[x, y] = true; changed = true; }
+                        else if (IsSolidWorld(cxy, x - 1, y, solid) && IsSolidWorld(cxy, x, y + 1, solid) && !IsSolidWorld(cxy, x - 1, y + 1, solid))
+                        { solid[x, y] = true; changed = true; }
+                        else if (IsSolidWorld(cxy, x + 1, y, solid) && IsSolidWorld(cxy, x, y + 1, solid) && !IsSolidWorld(cxy, x + 1, y + 1, solid))
+                        { solid[x, y] = true; changed = true; }
+                    }
             } while (changed);
 
             // 2) Enforce minimum corridor width (Manhattan).
@@ -328,14 +343,14 @@ namespace Game.World
             // (Fast approximation that yields smoother walkable space.)
             var buf = (bool[,])solid.Clone();
             for (int y = 0; y < N; y++)
-            for (int x = 0; x < N; x++)
-            {
-                if (solid[x, y]) continue; // only open tiles
-                int openH = 1 + CountOpenDir(cxy, x, y, -1, 0, solid) + CountOpenDir(cxy, x, y, 1, 0, solid);
-                int openV = 1 + CountOpenDir(cxy, x, y, 0, -1, solid) + CountOpenDir(cxy, x, y, 0, 1, solid);
-                if (openH < minWidth || openV < minWidth)
-                    buf[x, y] = true; // fill to widen corridors
-            }
+                for (int x = 0; x < N; x++)
+                {
+                    if (solid[x, y]) continue; // only open tiles
+                    int openH = 1 + CountOpenDir(cxy, x, y, -1, 0, solid) + CountOpenDir(cxy, x, y, 1, 0, solid);
+                    int openV = 1 + CountOpenDir(cxy, x, y, 0, -1, solid) + CountOpenDir(cxy, x, y, 0, 1, solid);
+                    if (openH < minWidth || openV < minWidth)
+                        buf[x, y] = true; // fill to widen corridors
+                }
             solid = buf;
         }
 
@@ -367,5 +382,25 @@ namespace Game.World
 
 
         public float ChunkWorldSize => _chunkWorldSize;
+
+        void ToggleAllChunkColliders()
+        {
+            // Lock to stable path; no polygon toggling in this branch.
+            defaultColliderMode = TerrainChunk.ColliderMode.GreedyBoxes;
+
+            // Refresh all loaded chunks and (optionally) rename with stats.
+            foreach (Transform child in transform)
+            {
+                var chunk = child.GetComponent<TerrainChunk>();
+                if (!chunk) continue;
+
+                chunk.colliderMode = TerrainChunk.ColliderMode.GreedyBoxes;
+                chunk.ForceRebuildCollidersNow(showChunkDebugInName);
+            }
+
+            Debug.Log("[World] Collider mode: GreedyBoxes (Composite-merged).");
+        }
+
+
     }
 }

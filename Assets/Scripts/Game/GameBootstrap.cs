@@ -11,11 +11,11 @@ namespace Game
         [Header("References")]
         [SerializeField] private TerrainWorld world;
         [SerializeField] private PoolManager poolManager;
-        [SerializeField] private SaveManager saveManager;
 
         private void Awake()
         {
             // TODO: init order and service registration.
+            if (world != null) SaveManager.Init(world.seed);
             DontDestroyOnLoad(gameObject);
         }
     }
