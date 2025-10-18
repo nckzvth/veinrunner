@@ -784,6 +784,9 @@ MonoBehaviour:
   fillRateHz: 6
   bandConfig: {fileID: 11400000, guid: f76d66990cbce4ed8ad20cbd1b62b167, type: 2}
   veinTable: {fileID: 11400000, guid: a01a1ac7b08ee4585a079d2507a6a07c, type: 2}
+  surfaceBiasMax: 0.45
+  surfaceBiasDepthTiles: 6
+  surfaceBiasFalloffGamma: 1.3
 --- !u!4 &901014697
 Transform:
   m_ObjectHideFlags: 0
