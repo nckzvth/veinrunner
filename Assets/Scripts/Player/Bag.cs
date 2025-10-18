@@ -1,18 +1,32 @@
-// File: Assets/Scripts/Player/Bag.cs
+// namespace: Game.Player
 using UnityEngine;
 
 namespace Game.Player
 {
-    /// <summary>Tracks paydirt and over-cap penalties.</summary>
-    public sealed class Bag : MonoBehaviour
+    public class Bag : MonoBehaviour
     {
-        [SerializeField] private int bagCap = 60;
+        [SerializeField, Min(1)] private int bagCap = 60;
+        public int Capacity => bagCap;
         public int Current { get; private set; }
+        public bool IsOverCap => Current > bagCap;
 
-        public bool TryAdd(int amount)
+        // Returns actual amount added (allows over-cap; controller applies penalty)
+        public int TryAdd(int amount)
         {
+            if (amount <= 0) return 0;
+            int before = Current;
             Current += amount;
-            return true;
+            return Current - before;
         }
+
+        public int TryRemove(int amount)
+        {
+            if (amount <= 0) return 0;
+            int removed = Mathf.Min(amount, Current);
+            Current -= removed;
+            return removed;
+        }
+
+        public void Clear() => Current = 0;
     }
 }
