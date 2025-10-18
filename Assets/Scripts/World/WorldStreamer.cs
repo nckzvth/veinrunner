@@ -8,7 +8,7 @@ namespace Game.World
     /// <summary>
     /// Loads/unloads a square window of chunks around the camera center.
     /// Dynamic-by-camera option grows with orthographicSize.
-    /// Includes: in-memory cache, disk saves (optional), and a load budget per frame.
+    /// Includes: in-memory cache, disk saves (optional), and a per-frame load budget.
     /// </summary>
     public sealed class WorldStreamer : MonoBehaviour
     {
@@ -41,8 +41,8 @@ namespace Game.World
 
         // Internal working sets
         readonly List<Vector2Int> _toRemove = new();
-        readonly Queue<Vector2Int> _pendingLoads = new();      // enforce order & budget
-        readonly HashSet<Vector2Int> _pendingSet = new();      // prevent duplicates
+        readonly Queue<Vector2Int> _pendingLoads = new();  // enforce order & budget
+        readonly HashSet<Vector2Int> _pendingSet = new();  // prevent duplicates
         HashSet<Vector2Int> _desiredNow = new();
 
         Vector2Int _center;
@@ -66,15 +66,16 @@ namespace Game.World
         public void ClearCachesAndReload()
         {
             _cache.Clear(); // RAM delta cache
-            // Also wipe currently loaded chunks to get a clean slate window
+
+            // Destroy currently loaded chunks
             foreach (var kv in _loaded)
                 if (kv.Value) Destroy(kv.Value.gameObject);
             _loaded.Clear();
 
-            // Clear pending and force a window rebuild
+            // Reset pending and force window rebuild
             _pendingLoads.Clear();
             _pendingSet.Clear();
-            _activeRadius = -999; // force refresh
+            _activeRadius = -999;
             UpdateCenter(force: true);
         }
 
@@ -141,7 +142,6 @@ namespace Game.World
             {
                 if (_loaded.ContainsKey(key)) continue;
                 if (_pendingSet.Contains(key)) continue;
-
                 _pendingLoads.Enqueue(key);
                 _pendingSet.Add(key);
             }
@@ -155,9 +155,9 @@ namespace Game.World
                 var key = _pendingLoads.Dequeue();
                 _pendingSet.Remove(key);
 
-                // A fast camera move may have changed the desired set
+                // If camera moved and this coord is no longer desired, skip it
                 if (_desiredNow != null && !_desiredNow.Contains(key))
-                    continue; // skip stale load
+                    continue;
 
                 // Create chunk
                 var chunk = world.CreateChunk(key, transform);
