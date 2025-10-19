@@ -48,6 +48,10 @@ namespace Game.Player
         float lastGroundedTime;
         float lastJumpPressedTime;
 
+        public bool IsGrounded => isGrounded;
+        public float HorizontalSpeed => rb ? rb.linearVelocity.x : 0f;
+        public float VerticalSpeed => rb ? rb.linearVelocity.y : 0f;
+
         void Awake()
         {
             rb = GetComponent<Rigidbody2D>();

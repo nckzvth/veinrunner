@@ -47,6 +47,7 @@ GameObject:
   - component: {fileID: 3235379527109226885}
   - component: {fileID: 6510542458665797637}
   - component: {fileID: 3504441934054927959}
+  - component: {fileID: 8208227471893167807}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -421,3 +422,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.Bag
   bagCap: 60
+--- !u!114 &8208227471893167807
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7869738510183127564}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f41d595c577942ed9c5e457c061fe56, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerAnimator2D
+  controller: {fileID: 0}
+  miner: {fileID: 0}
+  animator: {fileID: 0}
+  sprite: {fileID: 5754455644454952998}
+  faceByCursor: 1
+  flipInvert: 0
+  mineFlashSeconds: 0.12

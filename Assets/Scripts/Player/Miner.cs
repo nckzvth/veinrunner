@@ -25,6 +25,7 @@ namespace Game.Player
 
         // AggroManager can subscribe later; keep decoupled now
         public static event Action<Miner> GlobalOnSwing;
+        public event System.Action<Miner> Swung;
 
         float swingCooldown;
         readonly List<TerrainChunk.RimSample> rimScratch = new(192);
@@ -100,8 +101,9 @@ namespace Game.Player
             if (anyChange)
             {
                 if (bag) bag.TryAdd(paydirtPerSwing);
-                GlobalOnSwing?.Invoke(this);
-                // TODO: spawn crumble FX at rimScratch positions via PoolManager
+                Swung?.Invoke(this);              // NEW
+                GlobalOnSwing?.Invoke(this);      // existing hook for Aggro later
+                // TODO: FX via PoolManager using rimScratch
             }
 
             swingCooldown = 1f / swingRate;
