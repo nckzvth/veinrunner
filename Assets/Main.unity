@@ -309,6 +309,56 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &131203094
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 131203096}
+  - component: {fileID: 131203095}
+  m_Layer: 0
+  m_Name: Systems
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &131203095
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 131203094}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b3e0a516300d4ff7b0ccf96be8c71e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Systems.AggroManager
+  gainPerSwing: 1
+  gainPerDig: 5
+  decayPerSecond: 2
+  thresholds: 0f000000230000003c0000005a000000
+  logThresholds: 1
+  logHeatTicks: 1
+--- !u!4 &131203096
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 131203094}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1.57704, y: 0.43519, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &169192060
 GameObject:
   m_ObjectHideFlags: 0
@@ -536,11 +586,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.MiningPreview
   miner: {fileID: 223005456}
+  showFill: 1
+  fillMaterial: {fileID: 0}
   segments: 48
-  lineWidth: 0.02
-  validColor: {r: 0, g: 1, b: 0.2, a: 0.45}
-  invalidColor: {r: 1, g: 0, b: 0, a: 0.35}
-  hideWhenInvalid: 0
+  radialSamples: 6
+  fillColor: {r: 1, g: 0.97, b: 0.75, a: 0.33}
+  zOffset: -0.01
+  showRimLine: 1
+  rimArcWidth: 0.9
+  rimLineWidth: 0.025
+  rimLineColor: {r: 1, g: 0.96, b: 0.7, a: 0.3882353}
+  terrainMask:
+    serializedVersion: 2
+    m_Bits: 64
 --- !u!114 &223005464
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5624,7 +5682,7 @@ MonoBehaviour:
   fillPopMul: 0.45
   jitterSpeed: 0.35
   settleBiasY: -0.25
-  sizeRange: {x: 0.07, y: 0.1}
+  sizeRange: {x: 0.03, y: 0.06}
   lifeRange: {x: 0.75, y: 1.1}
   digColor: {r: 0.78, g: 0.68, b: 0.52, a: 1}
   fillColor: {r: 0.55, g: 0.62, b: 0.75, a: 1}
@@ -6746,3 +6804,4 @@ SceneRoots:
   - {fileID: 1112274967701930586}
   - {fileID: 2081968482}
   - {fileID: 811124572}
+  - {fileID: 131203096}
