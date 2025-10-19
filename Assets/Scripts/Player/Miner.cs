@@ -10,25 +10,29 @@ namespace Game.Player
     [DisallowMultipleComponent]
     public sealed class Miner : MonoBehaviour
     {
-        [Header("Input (optional auto-bind)")]
-        [SerializeField] private PlayerInput input;
-        
         [Header("Mining")]
-        [SerializeField, Min(0.05f)] private float swingRate = 3.0f; // swings per second
-        [SerializeField, Min(0.05f)] private float brushWorldRadius = 0.2f; // tuned to new world
+        [SerializeField, Min(0.05f)] private float swingRate = 3.0f;
+        [SerializeField, Min(0.05f)] private float brushWorldRadius = 0.2f;
         [SerializeField, Min(0.25f)] private float maxRange = 1.75f;
-        [SerializeField] private LayerMask terrainMask; // Ground layer
+        [SerializeField] private LayerMask terrainMask;
 
         [Header("Paydirt")]
-        [SerializeField] private int paydirtPerSwing = 1; // simple proto
+        [SerializeField] private int paydirtPerSwing = 1;
         [SerializeField] private Bag bag;
 
-        // AggroManager can subscribe later; keep decoupled now
+        [Header("Input (auto-bind)")]
+        [SerializeField] private PlayerInput input;
+
+        // Events
         public static event Action<Miner> GlobalOnSwing;
-        public event System.Action<Miner> Swung;
+        public event Action<Miner> Swung;
+        public event Action<IReadOnlyList<TerrainChunk.RimSample>> DigApplied;
+        /// <summary>center, radius, strikeDir (player→center), rim positions</summary>
+        public event Action<Vector2, float, Vector2, IReadOnlyList<Vector2>> DigAppliedDebug;
 
         float swingCooldown;
         readonly List<TerrainChunk.RimSample> rimScratch = new(192);
+        readonly List<Vector2> rimPosScratch = new(192);
 
         void Awake()
         {
@@ -36,7 +40,7 @@ namespace Game.Player
             if (!input) input = GetComponent<PlayerInput>();
         }
 
-                void OnEnable()
+        void OnEnable()
         {
             if (!input) input = GetComponent<PlayerInput>();
             if (input && input.actions != null)
@@ -68,11 +72,12 @@ namespace Game.Player
             TrySwing();
         }
 
-        void TrySwing()
+        public void TrySwing()
         {
             if (swingCooldown > 0f) return;
 
-            Vector2 origin = transform.position;
+            // target center + strike direction
+            Vector2 origin = (Vector2)transform.position;
             Vector2 mouseWorld = MouseToWorld();
             Vector2 dir = mouseWorld - origin;
 
@@ -81,29 +86,33 @@ namespace Game.Player
             if (dist > maxRange) dir = dir.normalized * maxRange;
 
             Vector2 center = origin + dir;
+            Vector2 strikeDir = (center - origin).sqrMagnitude > 1e-6f ? (center - origin).normalized : Vector2.right;
             float r = brushWorldRadius;
 
-            // Overlap with CompositeCollider2D-based chunks (use parent lookup)
+            // apply dig
             var hits = Physics2D.OverlapCircleAll(center, r + 0.02f, terrainMask);
             bool anyChange = false;
             rimScratch.Clear();
 
             for (int i = 0; i < hits.Length; i++)
             {
-                var h = hits[i];
-                var chunk = h ? h.GetComponentInParent<TerrainChunk>() : null;
+                var chunk = hits[i] ? hits[i].GetComponentInParent<TerrainChunk>() : null;
                 if (!chunk) continue;
-
-                bool changed = chunk.ApplyCircle(center, r, TerrainChunk.BrushMode.Dig, rimScratch, 192);
-                anyChange |= changed;
+                anyChange |= chunk.ApplyCircle(center, r, TerrainChunk.BrushMode.Dig, rimScratch, 192);
             }
 
             if (anyChange)
             {
                 if (bag) bag.TryAdd(paydirtPerSwing);
-                Swung?.Invoke(this);              // NEW
-                GlobalOnSwing?.Invoke(this);      // existing hook for Aggro later
-                // TODO: FX via PoolManager using rimScratch
+
+                rimPosScratch.Clear();
+                for (int i = 0; i < rimScratch.Count; i++)
+                    rimPosScratch.Add(rimScratch[i].worldPos);
+
+                Swung?.Invoke(this);
+                GlobalOnSwing?.Invoke(this);
+                DigApplied?.Invoke(rimScratch);
+                DigAppliedDebug?.Invoke(center, r, strikeDir, rimPosScratch);
             }
 
             swingCooldown = 1f / swingRate;
@@ -114,6 +123,18 @@ namespace Game.Player
             var cam = Camera.main;
             Vector3 p = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector3.zero;
             return cam ? (Vector2)cam.ScreenToWorldPoint(p) : Vector2.zero;
+        }
+
+        public void GetTarget(out Vector2 center, out float radius, out LayerMask mask)
+        {
+            Vector2 origin = transform.position;
+            Vector2 mouseWorld = MouseToWorld();
+            Vector2 dir = mouseWorld - origin;
+            if (dir.magnitude > maxRange) dir = dir.normalized * maxRange;
+
+            center = origin + dir;
+            radius = brushWorldRadius;
+            mask = terrainMask;
         }
     }
 }
