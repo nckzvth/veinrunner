@@ -586,7 +586,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.Player.MiningPreview
   miner: {fileID: 223005456}
-  showFill: 1
+  showFill: 0
   fillMaterial: {fileID: 0}
   segments: 48
   radialSamples: 6
@@ -611,14 +611,53 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3665dc8af61bb465ca1760d76c74c94d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Game.FX.RimFXDebug
-  miner: {fileID: 223005456}
-  rayColor:
-    r: 1
-    g: 0.85
-    b: 0.3
-    a: 1
-  rayLength: 0.25
-  duration: 0.25
+--- !u!114 &223005465 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3504441934054927959, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+  m_PrefabInstance: {fileID: 1112274967701930586}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 223005452}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 631bb0c76ad464069bbcc3c7ed410350, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Player.Bag
+--- !u!114 &223005469
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 223005452}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e6fc623fc06f4bcc8519b4b41965378, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Player.PlayerSaveBinder
+  bag: {fileID: 223005465}
+  startFresh: 1
+--- !u!114 &223005470
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 223005452}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f8482fce104f42faabb8e0de5c35558, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Player.WallSensors2D
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 64
+  autoFitFromCollider: 1
+  fitMargin: 0.01
+  halfHeight: 0.14500003
+  sideOffset: 0.11
+  probeRadius: 0.04
+  ceilingOffset: 0.17500003
+  runInFixedUpdate: 1
 --- !u!1 &669211829
 GameObject:
   m_ObjectHideFlags: 0
@@ -6729,6 +6768,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3235379527109226885, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      propertyPath: dashEnabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5003775099369458711, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -6769,6 +6812,46 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5881533756200908250, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      propertyPath: m_ActionEvents.Array.size
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 5881533756200908250, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      propertyPath: m_ActionEvents.Array.data[19].m_ActionId
+      value: 4a1c34d0-89e0-4f7c-860b-5be23225277b
+      objectReference: {fileID: 0}
+    - target: {fileID: 5881533756200908250, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      propertyPath: m_ActionEvents.Array.data[19].m_ActionName
+      value: 'Player/Dash[/Keyboard/leftCtrl]'
+      objectReference: {fileID: 0}
+    - target: {fileID: 5881533756200908250, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      propertyPath: m_ActionEvents.Array.data[19].m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5881533756200908250, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      propertyPath: m_ActionEvents.Array.data[19].m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5881533756200908250, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      propertyPath: m_ActionEvents.Array.data[19].m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6654242247096392805, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      propertyPath: m_Interpolate
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6654242247096392805, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      propertyPath: m_LinearDamping
+      value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 6654242247096392805, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      propertyPath: m_AngularDamping
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6654242247096392805, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      propertyPath: m_CollisionDetection
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7869738510183127564, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
       propertyPath: m_Name
       value: Player
@@ -6789,6 +6872,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7869738510183127564, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
       insertIndex: -1
       addedObject: {fileID: 223005463}
+    - targetCorrespondingSourceObject: {fileID: 7869738510183127564, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 223005469}
+    - targetCorrespondingSourceObject: {fileID: 7869738510183127564, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 223005470}
   m_SourcePrefab: {fileID: 100100000, guid: c45580c3c18be46b9acfbf0bee33578e, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
