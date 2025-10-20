@@ -35,7 +35,7 @@ namespace Game.Player
         [SerializeField] private float jumpForceMultiplier = 1f;
 
         [Header("Environment Sensors")]
-        [SerializeField] private WallSensors2D sensors;
+        [SerializeField] private WallSensors2D sensors; // used for ceiling only in dash; walls later
 
         [Header("Links / Input")]
         [SerializeField] private Bag bag;
@@ -51,6 +51,16 @@ namespace Game.Player
         [SerializeField, Range(0.05f, 0.5f)] private float dashInputDeadzone = 0.20f;
         [SerializeField] private bool allowGroundDash = true;
         [SerializeField] private bool dashCutUpwardVelocityAtStart = true;
+        [Tooltip("Delay before wall-cancel is evaluated, to avoid canceling on ground contact/slopes.")]
+        [SerializeField, Range(0f, 0.12f)] private float dashWallCancelDelay = 0.035f;
+        [Tooltip("If dashing from ground, set at least this upward Vy so we cleanly leave the floor.")]
+        [SerializeField, Min(0f)] private float dashGroundLiftVy = 1.0f;
+
+        [Header("Dash Collision (cast)")]
+        [Tooltip("Extra distance added to the cast to avoid missing very close walls.")]
+        [SerializeField, Min(0f)] private float dashCastSkin = 0.02f;
+        [Tooltip("Treat a hit as a wall if |normal.x| >= this. 0.7≈mostly horizontal surface.")]
+        [SerializeField, Range(0.5f, 0.95f)] private float dashWallNormalDotMin = 0.70f;
 
         const float OVERCAP_SPEED_MULT = 0.6f; // −40% when over-cap
 
@@ -67,11 +77,17 @@ namespace Game.Player
         bool isDashing;
         float dashTimer;
         float dashCooldownTimer;
+        float dashWallGraceTimer;
         int dashDir;                // -1 = left, +1 = right
         int dashesRemaining;        // replenished on ground touch
 
-        // Facing fallback for dash direction resolution
+        // Direction fallbacks
         int lastFacingSign = 1;     // +1 right, -1 left
+        int lastMoveSign   = 1;     // last non-zero horizontal input
+
+        // Cast cache
+        readonly RaycastHit2D[] dashCastHits = new RaycastHit2D[4];
+        ContactFilter2D dashFilter;
 
         public bool IsGrounded => isGrounded;
         public float HorizontalSpeed => rb ? rb.linearVelocity.x : 0f;
@@ -87,6 +103,19 @@ namespace Game.Player
             rb.freezeRotation = true;
 
             dashesRemaining = dashAirCharges;
+
+            // Build dash contact filter (ground layers only, no triggers)
+            dashFilter.ClearLayerMask();
+            dashFilter.SetLayerMask(groundMask);
+            dashFilter.useTriggers = false;
+        }
+
+        void OnValidate()
+        {
+            // keep cast filter synced with mask
+            dashFilter.ClearLayerMask();
+            dashFilter.SetLayerMask(groundMask);
+            dashFilter.useTriggers = false;
         }
 
         void OnEnable()
@@ -148,18 +177,17 @@ namespace Game.Player
                 dashesRemaining = dashAirCharges;
             wasGrounded = isGrounded;
 
-            if (lastGroundedTime > 0) lastGroundedTime -= Time.unscaledDeltaTime;
-            if (lastJumpPressedTime > 0) lastJumpPressedTime -= Time.unscaledDeltaTime;
+            if (lastGroundedTime > 0)     lastGroundedTime     -= Time.unscaledDeltaTime;
+            if (lastJumpPressedTime > 0)  lastJumpPressedTime  -= Time.unscaledDeltaTime;
+            if (dashCooldownTimer > 0f)   dashCooldownTimer    -= Time.unscaledDeltaTime;
+            if (dashWallGraceTimer > 0f)  dashWallGraceTimer   -= Time.unscaledDeltaTime;
 
-            // Dash timers
-            if (dashCooldownTimer > 0f) dashCooldownTimer -= Time.unscaledDeltaTime;
             if (isDashing)
             {
                 dashTimer -= Time.unscaledDeltaTime;
 
-                // Early stop when hitting a wall
-                if ((dashDir < 0 && sensors && sensors.IsTouchingWallLeft) ||
-                    (dashDir > 0 && sensors && sensors.IsTouchingWallRight))
+                bool wallCancelReady = dashWallGraceTimer <= 0f;
+                if (wallCancelReady && DashHitWallThisFrame())
                 {
                     EndDash();
                 }
@@ -251,15 +279,14 @@ namespace Game.Player
             bool canDash = (allowGroundDash && isGrounded) || (!isGrounded && dashesRemaining > 0);
             if (!canDash) return;
 
-            // Resolve dash direction:
-            //   1) strong horizontal input
-            //   2) cursor relative to player (if mouse present)
-            //   3) lastFacingSign fallback (prevents "no dash on ground" edge cases)
+            // Direction priority:
+            // 1) Held move key (intended run direction)
+            // 2) Current horizontal velocity sign (keeps momentum flow)
+            // 3) Cursor side, if mouse available
+            // 4) Last non-zero move sign, else facing
             float dir = 0f;
-            if (Mathf.Abs(moveInput.x) >= dashInputDeadzone)
-            {
-                dir = Mathf.Sign(moveInput.x);
-            }
+            if (Mathf.Abs(moveInput.x) >= dashInputDeadzone)          dir = Mathf.Sign(moveInput.x);
+            else if (Mathf.Abs(rb.linearVelocity.x) > 0.01f)          dir = Mathf.Sign(rb.linearVelocity.x);
             else
             {
                 var cam = Camera.main;
@@ -271,18 +298,28 @@ namespace Game.Player
                     if (Mathf.Abs(dx) >= 0.001f) dir = Mathf.Sign(dx);
                 }
             }
-            if (dir == 0f) dir = lastFacingSign; // NEW: robust fallback for ground dashes
+            if (dir == 0f) dir = (lastMoveSign != 0 ? lastMoveSign : lastFacingSign);
 
             dashDir = dir > 0f ? 1 : -1;
             isDashing = true;
             dashTimer = dashDuration;
+            dashWallGraceTimer = dashWallCancelDelay;
 
-            // Optional: cut upward momentum to make ground bursts crisp
-            if (dashCutUpwardVelocityAtStart)
+            // Start-of-dash vertical handling
+            Vector2 v = rb.linearVelocity;
+
+            // If airborne and you asked to cut upward speed, make the dash crisp
+            if (!isGrounded && dashCutUpwardVelocityAtStart && v.y > 0f)
+                v.y = 0f;
+
+            // If ground dash, add a tiny lift to clear the floor & avoid immediate cancel from floor edges
+            if (isGrounded && allowGroundDash && dashGroundLiftVy > 0f
+                && !(sensors && sensors.IsCeilingBlocked))
             {
-                Vector2 v = rb.linearVelocity;
-                if (v.y > 0f) { v.y = 0f; rb.linearVelocity = v; }
+                v.y = Mathf.Max(v.y, dashGroundLiftVy);
             }
+
+            rb.linearVelocity = v;
 
             // consume air charge only if airborne
             if (!isGrounded && dashesRemaining > 0) dashesRemaining--;
@@ -299,12 +336,37 @@ namespace Game.Player
             rb.linearVelocity = v;
         }
 
+        // Use shape-cast to detect a real wall in front of the player while dashing.
+        // Ignores floors/ramps because we check the hit normal.x magnitude/sign.
+        bool DashHitWallThisFrame()
+        {
+            if (!rb) return false;
+
+            Vector2 dir = new Vector2(dashDir, 0f);
+            // Cast for the distance we’d cover in the next physics step, plus a small skin
+            float dist = Mathf.Max(0.005f, dashSpeed * Time.fixedDeltaTime + dashCastSkin);
+
+            int count = rb.Cast(dir, dashFilter, dashCastHits, dist);
+            for (int i = 0; i < count; i++)
+            {
+                var h = dashCastHits[i];
+                Vector2 n = h.normal;
+                // wall if normal.x is opposite to dash direction and sufficiently horizontal
+                if (dashDir > 0 && n.x <= -dashWallNormalDotMin) return true;
+                if (dashDir < 0 && n.x >=  dashWallNormalDotMin) return true;
+            }
+            return false;
+        }
+
         // ===== Input =====
         public void OnMove(InputAction.CallbackContext ctx)
         {
             moveInput = ctx.ReadValue<Vector2>();
             if (Mathf.Abs(moveInput.x) > 0.05f)
-                lastFacingSign = moveInput.x > 0f ? 1 : -1; // keep facing updated
+            {
+                lastMoveSign = moveInput.x > 0f ? 1 : -1;
+                lastFacingSign = lastMoveSign; // keep facing fallback sensible for ground dash
+            }
         }
 
         public void OnJump(InputAction.CallbackContext ctx) { if (ctx.performed) lastJumpPressedTime = jumpBuffer; }
