@@ -1,7 +1,9 @@
 // Namespace: Game.World
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Game.Services;
+using Unity.VisualScripting;
 
 namespace Game.World
 {
@@ -32,6 +34,24 @@ namespace Game.World
         [Header("Performance")]
         [Tooltip("How many new chunks can be created per frame.")]
         public int loadsPerFrame = 2;
+
+        // --- Lighting (for RC2DGI underlay) ---
+        [Header("Lighting")]
+        public Material blockerMaterial;          // assign GI_BlockerUnderlay in Inspector
+        public bool mirrorParentMaterial = false; // usually false
+        public bool cullHiddenUnderlays = true;
+        public bool skipOversizeSprites = true;
+        public float maxSpriteWorldSize = 8f;
+        public string groundLayerName = "Ground";
+        public string giEmittersLayerName = "GIEmitters";
+        public string underlaySortingLayerName = "GIBlockers";
+        public int underlayOrderOffset = -1000;
+
+        /// <summary>
+        /// NEW: Raised when a chunk is fully created, parented and its save-data (if any) is applied.
+        /// Safe time to equip lighting/underlay/shadowcasters for this chunk.
+        /// </summary>
+        public event Action<GameObject> OnChunkFinalized;
 
         // RAM cache for deltas this session
         readonly Dictionary<Vector2Int, ChunkSaveData> _cache = new();
@@ -163,15 +183,32 @@ namespace Game.World
                 var chunk = world.CreateChunk(key, transform);
                 _loaded[key] = chunk;
 
-                // Apply disk or RAM deltas (disk preferred)
+                // Apply disk or RAM deltas...
                 if (enableDiskSaves && SaveManager.TryLoadChunk(world.seed, key, out var disk))
-                {
                     chunk.ApplySaveData(in disk);
-                }
                 else if (keepMemoryCache && _cache.TryGetValue(key, out var ram))
-                {
                     chunk.ApplySaveData(in ram);
-                }
+
+                // >>> Equip lighting for this newly created chunk
+                ChunkLightingRuntime.Equip(
+                    chunk.gameObject,
+                    groundLayerName,
+                    giEmittersLayerName,
+                    underlaySortingLayerName,
+                    underlayOrderOffset,
+                    blockerMaterial,          // <— this is the one you assign in Inspector
+                    mirrorParentMaterial,
+                    cullHiddenUnderlays,
+                    skipOversizeSprites,
+                    maxSpriteWorldSize
+                );
+                _loaded[key] = chunk;
+
+
+                // NEW: After the chunk is fully built/parented and data applied, announce it.
+                // Subscribers (ChunkLightingSubscriber) will equip lighting/underlay immediately
+                // with their own budgets (no scene scanning, no hitch).
+                OnChunkFinalized?.Invoke(chunk.gameObject);
             }
         }
     }
