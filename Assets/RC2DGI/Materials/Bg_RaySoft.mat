@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: GI_BlockerUnderlay
-  m_Shader: {fileID: 4800000, guid: e260cfa7296ee7642b167f1eb5be5023, type: 3}
+  m_Name: Bg_RaySoft
+  m_Shader: {fileID: 4800000, guid: c9b8d79c10fc34ca3808d674a824885e, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -41,12 +41,25 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - PixelSnap: 0
+    - _EdgeSoft: 0.6
+    - _EdgeSoftness: 0.142
     - _EnableExternalAlpha: 0
+    - _Intensity: 1.85
+    - _LengthFade: 3.86
+    - _Roundness: 0.395
+    - _Seed: 0
+    - _StreaksAmt: 1
+    - _StreaksScale: 2.4
+    - _StreaksSpeed: -0.05
+    - _StripeAmp: 0.807
+    - _StripeScale: 14.4
+    - _TaperEnd: 0.5
+    - _TaperStart: 0.078
+    - _TipNarrow: 0.124
     - _ZWrite: 0
     m_Colors:
-    - _Color: {r: 0, g: 0, b: 0, a: 1}
-    - _Flip: {r: 1, g: 1, b: 1, a: 1}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
+    - _Tint: {r: 1, g: 0.94353163, b: 0.75, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

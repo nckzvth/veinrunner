@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: GI_BlockerUnderlay
-  m_Shader: {fileID: 4800000, guid: e260cfa7296ee7642b167f1eb5be5023, type: 3}
+  m_Name: Bg_RayPillar
+  m_Shader: {fileID: 4800000, guid: e6ba4194fee5b4dbbb6da0d2e9dd7736, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -41,12 +41,25 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - PixelSnap: 0
+    - _Alpha: 0.329
+    - _BaseFade: 0.434
     - _EnableExternalAlpha: 0
+    - _RadSoft: 0.281
+    - _Seed: 0
+    - _Skew: -0.089
+    - _StripeAmp: 0.301
+    - _StripeScale: 16
+    - _StripeWarp: 0.25
+    - _TipFade: 0.581
+    - _TipTaper: 0.174
     - _ZWrite: 0
     m_Colors:
-    - _Color: {r: 0, g: 0, b: 0, a: 1}
-    - _Flip: {r: 1, g: 1, b: 1, a: 1}
+    - _AxisX_PX: {r: 1, g: 0, b: 0, a: 0}
+    - _AxisY_PX: {r: 0, g: 1, b: 0, a: 0}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _MaskSize: {r: 1, g: 1, b: 1, a: 1}
+    - _RayOriginPX: {r: 0, g: 0, b: 0, a: 0}
     - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
+    - _Tint: {r: 1, g: 0.98331034, b: 0.8915094, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

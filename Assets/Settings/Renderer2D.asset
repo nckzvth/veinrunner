@@ -1,21 +1,5 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-5618801434115548153
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9419984f52049e940ac03ceacb8d21b9, type: 3}
-  m_Name: RadianceCascades2DGI
-  m_EditorClassIdentifier: Assembly-CSharp::RadianceCascades2DGI
-  m_Active: 1
-  lightElementLayerMask:
-    serializedVersion: 2
-    m_Bits: 256
 --- !u!114 &-3723427932555681890
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -57,8 +41,8 @@ MonoBehaviour:
     probeSamplingDebugTexture: {fileID: 2800000, guid: 24ec0e140fb444a44ab96ee80844e18e, type: 3}
     probeVolumeBlendStatesCS: {fileID: 0}
   m_RendererFeatures:
-  - {fileID: -5618801434115548153}
-  m_RendererFeatureMap: 075c1688dd0106b2
+  - {fileID: 4269898820170343691}
+  m_RendererFeatureMap: 0be51ca35aba413b
   m_UseNativeRenderPass: 0
   m_LayerMask:
     serializedVersion: 2
@@ -105,6 +89,22 @@ MonoBehaviour:
   occluderLayer:
     m_Bits: 64
   injection: 300
+--- !u!114 &4269898820170343691
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9419984f52049e940ac03ceacb8d21b9, type: 3}
+  m_Name: RadianceCascades2DGILocal
+  m_EditorClassIdentifier: Assembly-CSharp::RadianceCascades2DGI
+  m_Active: 1
+  lightElementLayerMask:
+    serializedVersion: 2
+    m_Bits: 256
 --- !u!114 &6252903433161880024
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -38,16 +38,16 @@ MonoBehaviour:
     m_Value: 0.8
   rayRange:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 0.163
   skyRadiance:
     m_OverrideState: 1
     m_Value: 0
   skyColor:
     m_OverrideState: 1
-    m_Value: {r: 0, g: 0, b: 0, a: 1}
+    m_Value: {r: 0.027499998, g: 0.027499998, b: 0.027499998, a: 1}
   sunColor:
     m_OverrideState: 1
-    m_Value: {r: 0.9339623, g: 0.9339623, b: 0.9339623, a: 10}
+    m_Value: {r: 1, g: 0.7992422, b: 0.5801887, a: 10}
   sunAngle:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 0.97

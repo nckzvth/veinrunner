@@ -14,9 +14,9 @@ TagManager:
   - Ground
   - Player
   - GIEmitters
-  - 
-  - 
-  - 
+  - Background
+  - LocalEmitters
+  - SkylightEmitters
   - 
   - 
   - 
@@ -38,11 +38,20 @@ TagManager:
   - 
   - 
   m_SortingLayers:
-  - name: Default
-    uniqueID: 0
+  - name: GIRadiance
+    uniqueID: 3893150009
+    locked: 0
+  - name: WorldBG
+    uniqueID: 1881631357
+    locked: 0
+  - name: GIRays
+    uniqueID: 603016887
     locked: 0
   - name: GIBlockers
     uniqueID: 3880589537
+    locked: 0
+  - name: Default
+    uniqueID: 0
     locked: 0
   m_RenderingLayers:
   - Default
